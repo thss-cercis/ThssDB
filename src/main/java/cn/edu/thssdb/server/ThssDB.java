@@ -2,8 +2,10 @@ package cn.edu.thssdb.server;
 
 import cn.edu.thssdb.rpc.thrift.IService;
 import cn.edu.thssdb.schema.Manager;
+import cn.edu.thssdb.server.sess.SessionManager;
 import cn.edu.thssdb.service.IServiceHandler;
 import cn.edu.thssdb.utils.Global;
+import lombok.Getter;
 import org.apache.thrift.server.TServer;
 import org.apache.thrift.server.TSimpleServer;
 import org.apache.thrift.transport.TServerSocket;
@@ -20,6 +22,15 @@ public class ThssDB {
   private static TServerSocket transport;
   private static TServer server;
 
+  /**
+   * 管理全局 Session
+   */
+  @Getter
+  private final SessionManager sessionManager = new SessionManager();
+
+  /**
+   * TODO 管理数据库
+   */
   private Manager manager;
 
   public static ThssDB getInstance() {
@@ -32,7 +43,7 @@ public class ThssDB {
   }
 
   private void start() {
-    handler = new IServiceHandler();
+    handler = new IServiceHandler(this);
     processor = new IService.Processor(handler);
     Runnable setup = () -> setUp(processor);
     new Thread(setup).start();
