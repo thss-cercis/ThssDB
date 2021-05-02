@@ -33,4 +33,5 @@ target/
 
 # idea
 .idea
+ThssDB.iml
 out/
