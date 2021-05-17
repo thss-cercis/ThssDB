@@ -1,8 +1,11 @@
 package cn.edu.thssdb.exception;
 
 public class KeyNotExistException extends RuntimeException {
-  @Override
-  public String getMessage() {
-    return "Exception: key doesn't exist!";
+  public KeyNotExistException(String message) {
+    super(message);
+  }
+
+  public KeyNotExistException() {
+    super("Exception: key doesn't exist!");
   }
 }
