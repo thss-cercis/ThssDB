@@ -1,11 +1,12 @@
 package cn.edu.thssdb.schema;
 
-import cn.edu.thssdb.exception.DeserializationException;
-import cn.edu.thssdb.exception.SerializationException;
+import cn.edu.thssdb.exception.*;
 import cn.edu.thssdb.query.QueryResult;
 import cn.edu.thssdb.query.QueryTable;
 import cn.edu.thssdb.utils.Pair;
+import lombok.Getter;
 import lombok.SneakyThrows;
+import lombok.var;
 
 import java.io.*;
 import java.nio.file.Paths;
@@ -15,9 +16,10 @@ import java.util.Map;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 public class Database {
-
-  private String name;
-  private HashMap<String, Table> tables;
+  @Getter
+  private final String name;
+  @Getter
+  private final Map<String, Table> tables;
   ReentrantReadWriteLock lock;
 
   public Database(String name) {
@@ -87,11 +89,42 @@ public class Database {
   }
 
   public void createTable(String name, Column[] columns) {
-    // TODO
+    lock.writeLock().lock();
+    try {
+      Table table = tables.get(name);
+      if (table != null) {
+        throw new TableAlreadyExistException("table already exists: " + name);
+      } else if (columns == null || columns.length == 0) {
+        throw new InvalidColumnSchemaException("invalid column schema for table: " + name);
+      }
+      Table newTable = new Table(this.name, name, columns);
+      this.tables.put(name, newTable);
+    } finally {
+      lock.writeLock().unlock();
+    }
   }
 
   public void drop() {
     // TODO
+  }
+
+  public void dropTable(String name) {
+    lock.writeLock().lock();
+    try {
+      Table table = tables.get(name);
+      if (table == null) {
+        throw new TableNotExistException("table not exists: " + name);
+      }
+      var mutex = table.acquireWriteLock();
+      mutex.lock();
+      try {
+        tables.remove(name);
+      } finally {
+        mutex.unlock();
+      }
+    } finally {
+      lock.writeLock().unlock();
+    }
   }
 
   public String select(QueryTable[] queryTables) {

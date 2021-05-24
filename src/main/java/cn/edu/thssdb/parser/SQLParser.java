@@ -1,4 +1,4 @@
-// Generated from /Users/anyanzhe/workspace/ThssDB/src/main/java/cn/edu/thssdb/parser/SQL.g4 by ANTLR 4.8
+// Generated from /home/link/github/ThssDB/src/main/java/cn/edu/thssdb/parser/SQL.g4 by ANTLR 4.9.1
 package cn.edu.thssdb.parser;
 import org.antlr.v4.runtime.atn.*;
 import org.antlr.v4.runtime.dfa.DFA;
@@ -11,7 +11,7 @@ import java.util.ArrayList;
 
 @SuppressWarnings({"all", "warnings", "unchecked", "unused", "cast"})
 public class SQLParser extends Parser {
-	static { RuntimeMetaData.checkVersion("4.8", RuntimeMetaData.VERSION); }
+	static { RuntimeMetaData.checkVersion("4.9.1", RuntimeMetaData.VERSION); }
 
 	protected static final DFA[] _decisionToDFA;
 	protected static final PredictionContextCache _sharedContextCache =
@@ -1332,9 +1332,9 @@ public class SQLParser extends Parser {
 
 	public static class Show_table_stmtContext extends ParserRuleContext {
 		public TerminalNode K_SHOW() { return getToken(SQLParser.K_SHOW, 0); }
-		public TerminalNode K_DATABASE() { return getToken(SQLParser.K_DATABASE, 0); }
-		public Database_nameContext database_name() {
-			return getRuleContext(Database_nameContext.class,0);
+		public TerminalNode K_TABLE() { return getToken(SQLParser.K_TABLE, 0); }
+		public Table_nameContext table_name() {
+			return getRuleContext(Table_nameContext.class,0);
 		}
 		public Show_table_stmtContext(ParserRuleContext parent, int invokingState) {
 			super(parent, invokingState);
@@ -1364,9 +1364,9 @@ public class SQLParser extends Parser {
 			setState(233);
 			match(K_SHOW);
 			setState(234);
-			match(K_DATABASE);
+			match(K_TABLE);
 			setState(235);
-			database_name();
+			table_name();
 			}
 		}
 		catch (RecognitionException re) {
@@ -3314,9 +3314,9 @@ public class SQLParser extends Parser {
 		"\u00df\u00e2\7\66\2\2\u00e0\u00e1\7\'\2\2\u00e1\u00e3\7$\2\2\u00e2\u00e0"+
 		"\3\2\2\2\u00e2\u00e3\3\2\2\2\u00e3\u00e4\3\2\2\2\u00e4\u00e5\5N(\2\u00e5"+
 		"\35\3\2\2\2\u00e6\u00e7\7\65\2\2\u00e7\u00e8\7 \2\2\u00e8\37\3\2\2\2\u00e9"+
-		"\u00ea\7\61\2\2\u00ea!\3\2\2\2\u00eb\u00ec\7\65\2\2\u00ec\u00ed\7\37\2"+
-		"\2\u00ed\u00ee\5L\'\2\u00ee#\3\2\2\2\u00ef\u00f0\7)\2\2\u00f0\u00f1\7"+
-		"*\2\2\u00f1\u00fd\5N(\2\u00f2\u00f3\7\4\2\2\u00f3\u00f8\5R*\2\u00f4\u00f5"+
+		"\u00ea\7\61\2\2\u00ea!\3\2\2\2\u00eb\u00ec\7\65\2\2\u00ec\u00ed\7\66\2"+
+		"\2\u00ed\u00ee\5N(\2\u00ee#\3\2\2\2\u00ef\u00f0\7)\2\2\u00f0\u00f1\7*"+
+		"\2\2\u00f1\u00fd\5N(\2\u00f2\u00f3\7\4\2\2\u00f3\u00f8\5R*\2\u00f4\u00f5"+
 		"\7\5\2\2\u00f5\u00f7\5R*\2\u00f6\u00f4\3\2\2\2\u00f7\u00fa\3\2\2\2\u00f8"+
 		"\u00f6\3\2\2\2\u00f8\u00f9\3\2\2\2\u00f9\u00fb\3\2\2\2\u00fa\u00f8\3\2"+
 		"\2\2\u00fb\u00fc\7\6\2\2\u00fc\u00fe\3\2\2\2\u00fd\u00f2\3\2\2\2\u00fd"+

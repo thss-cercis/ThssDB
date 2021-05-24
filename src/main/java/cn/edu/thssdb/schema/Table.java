@@ -12,6 +12,7 @@ import java.io.*;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.stream.IntStream;
 
 public class Table implements Iterable<Row> {
   private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
@@ -130,7 +131,26 @@ public class Table implements Iterable<Row> {
   }
 
   public void update(Entry primaryKey, Iterator<Pair<Column, Entry>> columns) {
-    // TODO
+    Row rowData = index.get(primaryKey);
+    if (rowData == null) {
+      return;
+    }
+    while (columns.hasNext()) {
+      Pair<Column, Entry> col = columns.next();
+      Column colSchema = col.left;
+      Entry colEntry = col.right;
+      int colIdx = IntStream.range(0, this.columns.length)
+        .filter(i -> this.columns[i] == colSchema)
+        .findFirst()
+        .orElse(-1);
+      if (colIdx < 0) {
+        throw new InvalidColumnSchemaException("column not found: " + colSchema.toString());
+      }
+      if (colSchema.isNotNull() && colEntry.value == null) {
+        throw new InvalidColumnSchemaException("null value could not be assigned to column: " + colSchema.toString());
+      }
+      rowData.entries.set(colIdx, colEntry);
+    }
   }
 
   private class TableIterator implements Iterator<Row> {

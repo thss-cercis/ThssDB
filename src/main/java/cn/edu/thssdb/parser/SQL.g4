@@ -68,7 +68,7 @@ quit_stmt :
     K_QUIT;
 
 show_table_stmt :
-    K_SHOW K_DATABASE database_name;
+    K_SHOW K_TABLE table_name;
 
 insert_stmt :
     K_INSERT K_INTO table_name ( '(' column_name ( ',' column_name )* ')' )?
@@ -101,9 +101,11 @@ type_name :
     | T_DOUBLE
     | T_STRING '(' NUMERIC_LITERAL ')' ;
 
+// CHANGE SOMETHING
 column_constraint :
-    K_PRIMARY K_KEY
-    | K_NOT K_NULL ;
+//    K_PRIMARY K_KEY
+//    | K_NOT K_NULL ;
+    K_NOT K_NULL;
 
 multiple_condition :
     condition
