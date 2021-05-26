@@ -2,6 +2,7 @@ package cn.edu.thssdb.schema;
 
 import cn.edu.thssdb.exception.DeserializationException;
 import cn.edu.thssdb.type.ColumnType;
+import lombok.Builder;
 import lombok.Data;
 
 import java.io.DataInputStream;
@@ -9,6 +10,7 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 
 @Data
+@Builder
 public class Column implements Comparable<Column> {
   private final String name;
   private final ColumnType type;

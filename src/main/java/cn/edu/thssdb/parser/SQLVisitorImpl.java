@@ -3,8 +3,8 @@ package cn.edu.thssdb.parser;
 import cn.edu.thssdb.exception.ParseSyntaxException;
 import cn.edu.thssdb.exception.UnimplementedOperationException;
 import cn.edu.thssdb.query.IQueryRequest;
-import cn.edu.thssdb.query.enums.CreateTableColumnType;
 import cn.edu.thssdb.query.enums.QueryConditionComparator;
+import cn.edu.thssdb.query.enums.ValueType;
 import cn.edu.thssdb.query.request.QueryColumnNameOrValue;
 import cn.edu.thssdb.query.request.QueryCondition;
 import cn.edu.thssdb.query.request.create.CreateTableQueryRequest;
@@ -14,12 +14,18 @@ import cn.edu.thssdb.query.request.drop.DropQueryRequest;
 import cn.edu.thssdb.query.request.insert.InsertQueryRequest;
 import cn.edu.thssdb.query.request.select.SelectQueryRequest;
 import cn.edu.thssdb.query.request.show.ShowTableRequest;
+import cn.edu.thssdb.query.request.shutdown.ShutdownQueryRequest;
+import cn.edu.thssdb.query.request.transaction.BeginQueryRequest;
+import cn.edu.thssdb.query.request.transaction.CommitQueryRequest;
 import cn.edu.thssdb.query.request.update.UpdateQueryRequest;
+import cn.edu.thssdb.type.ColumnType;
 import lombok.var;
 import org.antlr.v4.runtime.RuleContext;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 public class SQLVisitorImpl extends SQLBaseVisitor<Object> {
@@ -49,6 +55,12 @@ public class SQLVisitorImpl extends SQLBaseVisitor<Object> {
       return visitSelect_stmt(ctx.select_stmt());
     } else if (ctx.delete_stmt() != null) {
       return visitDelete_stmt(ctx.delete_stmt());
+    } else if (ctx.shutdown_stmt() != null) {
+      return visitShutdown_stmt(ctx.shutdown_stmt());
+    } else if (ctx.begin_stmt() != null) {
+      return visitBegin_stmt(ctx.begin_stmt());
+    } else if (ctx.commit_stmt() != null) {
+      return visitCommit_stmt(ctx.commit_stmt());
     }
     // ! Unimplemented part!
     throw new UnimplementedOperationException("not implemented yet");
@@ -60,6 +72,18 @@ public class SQLVisitorImpl extends SQLBaseVisitor<Object> {
     req.setTableName(visitTable_name(ctx.table_name()));
     // column defs
     req.getAttrs().addAll(ctx.column_def().stream().map(this::visitColumn_def).collect(Collectors.toList()));
+    // 检验重复 attr name
+    req.getAttrs().forEach(attr -> {
+      int count = 0;
+      for (CreateTableAttr attrOther: req.getAttrs()) {
+        if (attr.getAttrName().equals(attrOther.getAttrName())) {
+          count += 1;
+        }
+      }
+      if (count > 1) {
+        throw new ParseSyntaxException("duplicate attr name when creating table: " + attr.getAttrName());
+      }
+    });
     // table constraints
     // TODO: 目前只支持一个属性作为 Primary Key
     if (ctx.table_constraint() == null) {
@@ -70,7 +94,12 @@ public class SQLVisitorImpl extends SQLBaseVisitor<Object> {
     if (!isPKeyInAttrs) {
       throw new ParseSyntaxException("primary key is needed");
     }
-    req.setTableName(pkeyName);
+    req.setPrimaryKeyName(pkeyName);
+    var pkCol = req.getAttrs().stream().
+      filter(attr -> attr.getAttrName().equals(pkeyName)).
+      findFirst().
+      orElseThrow(() -> new ParseSyntaxException("could not find primary key"));
+    pkCol.setIsNotNull(true);
     return req;
   }
 
@@ -79,13 +108,17 @@ public class SQLVisitorImpl extends SQLBaseVisitor<Object> {
     var builder = CreateTableAttr.builder();
     builder.attrName(ctx.column_name().getText());
     String attrTypeStr = ctx.type_name().getText().replaceAll(" ", "");
-    if (attrTypeStr.toUpperCase().startsWith(CreateTableColumnType.STRING.text)) {
+    if (attrTypeStr.toUpperCase().startsWith(ColumnType.STRING.text)) {
       // String 类型
-      builder.columnType(CreateTableColumnType.STRING);
+      builder.columnType(ColumnType.STRING);
       int len = attrTypeStr.length();
-      builder.stringTypeLen(Integer.parseInt(attrTypeStr.substring(7, len - 1)));
+      int stringTypeLen = Integer.parseInt(attrTypeStr.substring(7, len - 1));
+      if (stringTypeLen <= 0) {
+        throw new ParseSyntaxException("length of String type must be greater than 0");
+      }
+      builder.stringTypeLen(stringTypeLen);
     } else {
-      var t = CreateTableColumnType.fromStr(attrTypeStr.toUpperCase());
+      var t = ColumnType.fromStr(attrTypeStr.toUpperCase());
       builder.columnType(t);
     }
     // isNotNull
@@ -117,6 +150,11 @@ public class SQLVisitorImpl extends SQLBaseVisitor<Object> {
     req.setTableName(visitTable_name(ctx.table_name()));
     if (ctx.column_name() != null) {
       req.getAttrNames().addAll(ctx.column_name().stream().map(RuleContext::getText).collect(Collectors.toList()));
+    }
+    // 检验重复
+    Set<String> tmpSet = new HashSet<>(req.getAttrNames());
+    if (tmpSet.size() != req.getAttrNames().size()) {
+      throw new ParseSyntaxException("duplicate attr name when inserting table");
     }
     req.getAttrValues().addAll(visitValue_entry(ctx.value_entry(0)));
     return req;
@@ -157,8 +195,25 @@ public class SQLVisitorImpl extends SQLBaseVisitor<Object> {
       req.setJoinCondition(visitCondition(tableQueryCtx.multiple_condition().condition()));
     }
     // where
-    req.setWhereCondition(visitCondition(ctx.multiple_condition().condition()));
+    if (ctx.multiple_condition() != null) {
+      req.setWhereCondition(visitCondition(ctx.multiple_condition().condition()));
+    }
     return req;
+  }
+
+  @Override
+  public ShutdownQueryRequest visitShutdown_stmt(SQLParser.Shutdown_stmtContext ctx) {
+    return new ShutdownQueryRequest();
+  }
+
+  @Override
+  public BeginQueryRequest visitBegin_stmt(SQLParser.Begin_stmtContext ctx) {
+    return new BeginQueryRequest();
+  }
+
+  @Override
+  public CommitQueryRequest visitCommit_stmt(SQLParser.Commit_stmtContext ctx) {
+    return new CommitQueryRequest();
   }
 
   @Override
@@ -201,7 +256,13 @@ public class SQLVisitorImpl extends SQLBaseVisitor<Object> {
     if (ctx.column_full_name() != null) {
       return visitColumn_full_name(ctx.column_full_name());
     } else {
-      return new QueryColumnNameOrValue(null, null, visitLiteral_value(ctx.literal_value()));
+      if (ctx.literal_value().NUMERIC_LITERAL() != null) {
+        return new QueryColumnNameOrValue(null, null, ValueType.NUMERIC, visitLiteral_value(ctx.literal_value()));
+      } else if (ctx.literal_value().K_NULL() != null) {
+        return new QueryColumnNameOrValue(null, null, ValueType.NULL, visitLiteral_value(ctx.literal_value()));
+      } else {
+        return new QueryColumnNameOrValue(null, null, ValueType.STRING, visitLiteral_value(ctx.literal_value()));
+      }
     }
   }
 

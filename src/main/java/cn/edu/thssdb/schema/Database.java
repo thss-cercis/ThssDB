@@ -85,7 +85,7 @@ public class Database {
     } finally {
       lock.readLock().unlock();
     }
-    // TODO
+    // TODO: 事务
   }
 
   public void createTable(String name, Column[] columns) {
@@ -105,7 +105,7 @@ public class Database {
   }
 
   public void drop() {
-    // TODO
+    // TODO: 不需要实现
   }
 
   public void dropTable(String name) {
@@ -125,12 +125,6 @@ public class Database {
     } finally {
       lock.writeLock().unlock();
     }
-  }
-
-  public String select(QueryTable[] queryTables) {
-    // TODO
-    QueryResult queryResult = new QueryResult(queryTables);
-    return null;
   }
 
   @SneakyThrows

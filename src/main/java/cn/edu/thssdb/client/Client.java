@@ -24,6 +24,7 @@ import javax.annotation.Nullable;
 import java.io.PrintStream;
 import java.util.List;
 import java.util.Scanner;
+import java.util.StringJoiner;
 
 public class Client {
 
@@ -92,6 +93,9 @@ public class Client {
           case Global.SHOW_TIME:
             getTime();
             break;
+          case Global.HELP:
+            showHelp();
+            break;
           case Global.QUIT:
             open = false;
             break;
@@ -115,8 +119,17 @@ public class Client {
                 if (status.code != StatusCode.SUCCESS.code) {
                   println("Code: " + status.getCode() + ", msg: " + status.getMsg());
                 } else {
-                  // TODO 格式化输出语句结果
-                  println("TODO: Not implemented YET.");
+                  // 格式化输出语句结果
+                  // 先打印列名
+                  StringJoiner joiner = new StringJoiner(", ");
+                  resp.getColumnsList().forEach(joiner::add);
+                  println(joiner.toString());
+                  // 再打印每行数据
+                  resp.getRowList().forEach(rowList -> {
+                    StringJoiner j = new StringJoiner(", ");
+                    rowList.forEach(j::add);
+                    println(j.toString());
+                  });
                 }
               } else {
                 println("尚未连接!");
@@ -231,7 +244,11 @@ public class Client {
 
   static void showHelp() {
     // TODO
-    println("DO IT YOURSELF");
+    println("Syntax hints: ");
+    println("\t显示事件: show time;");
+    println("\t连接服务端: connect [username] [password];");
+    println("\t断开连接: disconnect;");
+    println("\t退出: quit;");
   }
 
   static void echoStarting() {

@@ -7,5 +7,8 @@ public enum QueryType {
   INSERT,
   DELETE,
   UPDATE,
-  SELECT;
+  SELECT,
+  SHUTDOWN,
+  BEGIN,
+  COMMIT;
 }

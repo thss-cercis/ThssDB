@@ -2,6 +2,8 @@ package cn.edu.thssdb.schema;
 
 import cn.edu.thssdb.exception.DatabaseNotExistException;
 import cn.edu.thssdb.exception.DeserializationException;
+import lombok.Getter;
+import lombok.SneakyThrows;
 
 import java.io.*;
 import java.util.HashMap;
@@ -9,6 +11,7 @@ import java.util.Map;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 public class Manager {
+  @Getter
   private HashMap<String, Database> databases = new HashMap<>();
   private Database currentDatabase = null;
   private static ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
@@ -17,8 +20,14 @@ public class Manager {
     return Manager.ManagerHolder.INSTANCE;
   }
 
-  public Manager() {
-    // TODO
+  @SneakyThrows
+  private Manager() {
+    // 读取已存在的数据库数据
+    if (new File("metadata").exists()) {
+      load();
+    }
+    // TODO: 默认创建数据库 thss，因为不想做数据库创建的语句
+    createDatabaseIfNotExists("thss");
   }
 
   private void finish() throws DeserializationException {

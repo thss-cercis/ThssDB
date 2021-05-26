@@ -6,6 +6,12 @@
  */
 package cn.edu.thssdb.service;
 
+import cn.edu.thssdb.parser.SQLLexer;
+import cn.edu.thssdb.parser.SQLParser;
+import cn.edu.thssdb.parser.SQLVisitor;
+import cn.edu.thssdb.parser.SQLVisitorImpl;
+import cn.edu.thssdb.query.IQueryRequest;
+import cn.edu.thssdb.query.QueryResult;
 import cn.edu.thssdb.rpc.thrift.ConnectReq;
 import cn.edu.thssdb.rpc.thrift.ConnectResp;
 import cn.edu.thssdb.rpc.thrift.DisconnetReq;
@@ -16,17 +22,26 @@ import cn.edu.thssdb.rpc.thrift.GetTimeReq;
 import cn.edu.thssdb.rpc.thrift.GetTimeResp;
 import cn.edu.thssdb.rpc.thrift.IService;
 import cn.edu.thssdb.rpc.thrift.Status;
+import cn.edu.thssdb.schema.Database;
+import cn.edu.thssdb.schema.Manager;
 import cn.edu.thssdb.server.ThssDB;
 import cn.edu.thssdb.server.sess.SessionManager;
 import cn.edu.thssdb.server.sess.Session;
+import cn.edu.thssdb.utils.Cells;
 import cn.edu.thssdb.utils.enums.StatusCode;
 import lombok.AllArgsConstructor;
+import lombok.var;
+import org.antlr.v4.runtime.CharStreams;
+import org.antlr.v4.runtime.CommonTokenStream;
 import org.apache.thrift.TException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.stringtemplate.v4.ST;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Date;
+import java.util.List;
+import java.util.stream.Collectors;
 
 @AllArgsConstructor
 public class IServiceHandler implements IService.Iface {
@@ -90,6 +105,54 @@ public class IServiceHandler implements IService.Iface {
       );
     }
     // TODO 先解析，然后执行
-    return null;
+    SQLLexer lexer = new SQLLexer(CharStreams.fromString(req.getStatement()));
+    CommonTokenStream tokens = new CommonTokenStream(lexer);
+    SQLParser parser = new SQLParser(tokens);
+    SQLVisitor visitor = new SQLVisitorImpl();
+
+    // 写死数据库
+    Database database = Manager.getInstance().getDatabases().get("thss");
+
+    try {
+      // 解析 query 请求
+      List<IQueryRequest> reqList = (List<IQueryRequest>) visitor.visit(parser.parse());
+
+      QueryResult result = null;
+      for (IQueryRequest r: reqList) {
+        result = r.execute(database);
+      }
+      assert result != null;
+      // QueryResult -> ExecuteStatementResp
+      var resp = new ExecuteStatementResp(
+        new Status(StatusCode.SUCCESS.code),
+        false,
+        true
+      );
+      resp.setColumnsList(new ArrayList<>());
+      resp.setRowList(new ArrayList<>());
+      for (int i = 0;i < result.getMetaInfo().getColumns().size();++i) {
+        // 结果的列名
+        String colName = result.getMetaInfo().getColumns().get(i).getName();
+        if (result.getMetaInfo().getTableNames() != null && result.getMetaInfo().getTableNames().get(i) != null) {
+          resp.getColumnsList().add(String.format("%s.%s", result.getMetaInfo().getTableNames().get(i), colName));
+        } else {
+          resp.getColumnsList().add(colName);
+        }
+      }
+      for (int i = 0;i < result.getAttrs().size();++i) {
+        // 结果
+        Cells cells = result.getAttrs().get(i);
+        resp.getRowList().add(
+          cells.getCells().stream()
+            .map(c -> c.getValue() != null? c.getValue().toString() : null)
+            .collect(Collectors.toList())
+        );
+      }
+      return resp;
+    } catch (Exception e) {
+      Status status = new Status(StatusCode.FAILURE.code);
+      status.setMsg(e.getMessage());
+      return new ExecuteStatementResp(status, false, true);
+    }
   }
 }
