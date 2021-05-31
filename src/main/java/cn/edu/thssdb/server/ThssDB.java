@@ -49,6 +49,10 @@ public class ThssDB {
     new Thread(setup).start();
   }
 
+  public void stop() {
+    server.stop();
+  }
+
   private static void setUp(IService.Processor processor) {
     try {
       transport = new TServerSocket(Global.DEFAULT_SERVER_PORT);
@@ -62,8 +66,10 @@ public class ThssDB {
 
   private static class ThssDBHolder {
     private static final ThssDB INSTANCE = new ThssDB();
+
     private ThssDBHolder() {
 
     }
+
   }
 }

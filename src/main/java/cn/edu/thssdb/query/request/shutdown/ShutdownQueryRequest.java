@@ -1,5 +1,6 @@
 package cn.edu.thssdb.query.request.shutdown;
 
+import cn.edu.thssdb.exception.DBMSShutdownException;
 import cn.edu.thssdb.exception.UnimplementedOperationException;
 import cn.edu.thssdb.query.IQueryRequest;
 import cn.edu.thssdb.query.QueryResult;
@@ -25,7 +26,6 @@ public class ShutdownQueryRequest implements IQueryRequest {
    */
   @Override
   public QueryResult execute(Database db) {
-    // TODO: 数据库关闭操作
-    throw new UnimplementedOperationException("not implemented yet");
+    throw new DBMSShutdownException();
   }
 }

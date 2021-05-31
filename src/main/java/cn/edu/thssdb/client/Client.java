@@ -245,7 +245,7 @@ public class Client {
   static void showHelp() {
     // TODO
     println("Syntax hints: ");
-    println("\t显示事件: show time;");
+    println("\t显示时间: show time;");
     println("\t连接服务端: connect [username] [password];");
     println("\t断开连接: disconnect;");
     println("\t查看所有表: show tables;");

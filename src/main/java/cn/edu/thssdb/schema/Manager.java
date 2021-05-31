@@ -30,18 +30,18 @@ public class Manager {
     createDatabaseIfNotExists("thss");
   }
 
+  /**
+   * * NOTE: not locked
+   */
   private void finish() throws DeserializationException {
-    lock.readLock().lock();
-    try (DataOutputStream dos = new DataOutputStream(new FileOutputStream("metadata1"))) {
+    try (DataOutputStream dos = new DataOutputStream(new FileOutputStream("metadata"))) {
       dos.writeInt(databases.size());
       for (Map.Entry<String, Database> entry : databases.entrySet()) {
         dos.writeUTF(entry.getKey());
-        entry.getValue().quit();
+        entry.getValue().shutdown();
       }
     } catch (IOException e) {
       throw new DeserializationException("Failed to save metadata.", e);
-    } finally {
-      lock.readLock().unlock();
     }
   }
 
@@ -52,6 +52,7 @@ public class Manager {
       for (int i = 0; i < dbCount; ++i) {
         String databaseName = fis.readUTF();
         Database db = new Database(databaseName);
+
         databases.put(databaseName, db);
       }
       // TODO read log
@@ -101,6 +102,20 @@ public class Manager {
       }
     } finally {
       readLock.unlock();
+    }
+  }
+
+  public void shutdown() {
+    // TODO interrupt all transactions
+    lock.writeLock().lock();
+    try {
+      databases.forEach((name, db) -> {
+        db.shutdown();
+      });
+      finish();
+    } catch (Throwable ignored) {
+    } finally {
+      lock.writeLock().unlock();
     }
   }
 

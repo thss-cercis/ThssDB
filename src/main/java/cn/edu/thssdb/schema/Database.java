@@ -74,10 +74,8 @@ public class Database {
           }
           // save table
           File tableFile = new File(getTablePath(tableName));
-          if (tableFile.exists()) {
-            try (FileInputStream fileInputStream = new FileInputStream(tableFile)) {
-              table.recover(fileInputStream);
-            }
+          try (FileOutputStream fileOutputStream = new FileOutputStream(tableFile)) {
+            table.save(fileOutputStream);
           }
         }
       }
@@ -161,13 +159,14 @@ public class Database {
             table.recover(fileInputStream);
           }
         }
+        this.tables.put(table.tableName, table);
       }
     } catch (IOException e) {
       throw new DeserializationException("Failed to recover database " + name, e);
     }
   }
 
-  public void quit() {
+  public void shutdown() {
     persist();
   }
 }

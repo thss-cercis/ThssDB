@@ -6,6 +6,7 @@
  */
 package cn.edu.thssdb.service;
 
+import cn.edu.thssdb.exception.DBMSShutdownException;
 import cn.edu.thssdb.parser.SQLLexer;
 import cn.edu.thssdb.parser.SQLParser;
 import cn.edu.thssdb.parser.SQLVisitor;
@@ -107,7 +108,7 @@ public class IServiceHandler implements IService.Iface {
     SQLLexer lexer = new SQLLexer(CharStreams.fromString(req.getStatement()));
     CommonTokenStream tokens = new CommonTokenStream(lexer);
     SQLParser parser = new SQLParser(tokens);
-    SQLVisitor visitor = new SQLVisitorImpl();
+    SQLVisitor<?> visitor = new SQLVisitorImpl();
 
     // 写死数据库
     Database database = Manager.getInstance().getDatabases().get("thss");
@@ -148,6 +149,10 @@ public class IServiceHandler implements IService.Iface {
         );
       }
       return resp;
+    } catch (DBMSShutdownException e) {
+      Manager.getInstance().shutdown();
+      ThssDB.getInstance().stop();
+      return new ExecuteStatementResp(new Status(StatusCode.SUCCESS.code), false, false);
     } catch (Exception e) {
       Status status = new Status(StatusCode.FAILURE.code);
       status.setMsg(e.getMessage());
