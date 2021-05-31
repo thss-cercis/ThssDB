@@ -9,23 +9,17 @@ import cn.edu.thssdb.schema.Database;
 import cn.edu.thssdb.schema.Table;
 import cn.edu.thssdb.utils.Cell;
 import cn.edu.thssdb.utils.Cells;
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
 import lombok.var;
 
-@AllArgsConstructor
-@NoArgsConstructor
-@Data
-public class ShowTableRequest implements IQueryRequest {
+public class ShowTablesQueryRequest implements IQueryRequest {
   /**
-   * 待展示的表名.
+   * 获取请求的类型.
+   *
+   * @return 请求类型
    */
-  private String tableName;
-
   @Override
   public QueryType getQueryType() {
-    return QueryType.SHOW_TABLE;
+    return QueryType.SHOW_TABLES;
   }
 
   /**
@@ -39,32 +33,24 @@ public class ShowTableRequest implements IQueryRequest {
     QueryResult result = new QueryResult();
     // 样式
     result.setMetaInfo(MetaInfo.fromColumns(null,
-      Column.builder().name("table_name").build(),
-      Column.builder().name("attr_name").build(),
-      Column.builder().name("attr_type").build(),
-      Column.builder().name("attr_constraints").build()
+      Column.builder().name("table_name").build()
     ));
-    Table table = db.getTables().get(this.tableName);
-    if (table == null) {
-      return result;
-    }
-    // lock table
-    var mutex = table.acquireReadLock();
+    // lock db
+    var mutex = db.getLock().readLock();
     mutex.lock();
     try {
-      for (Column col : table.getColumns()) {
+      var tables = db.getTables();
+      for (Table table: tables.values()) {
         result.getAttrs().add(
           Cells.fromCell(
-            new Cell(this.tableName),
-            new Cell(col.getName()),
-            new Cell(col.getType().toString()),
-            new Cell((col.getPrimary() > 0 ? "PRIMARY KEY " : "") + (col.isNotNull() ? "NOT NULL " : ""))
+            new Cell(table.getTableName())
           )
         );
       }
     } finally {
       mutex.unlock();
     }
+
     return result;
   }
 }

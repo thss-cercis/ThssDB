@@ -20,6 +20,7 @@ public class Database {
   private final String name;
   @Getter
   private final Map<String, Table> tables;
+  @Getter
   ReentrantReadWriteLock lock;
 
   public Database(String name) {

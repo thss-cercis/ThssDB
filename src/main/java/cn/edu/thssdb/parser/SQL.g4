@@ -71,7 +71,7 @@ quit_stmt :
     K_QUIT;
 
 show_table_stmt :
-    K_SHOW K_TABLE table_name;
+    K_SHOW K_TABLES;
 
 insert_stmt :
     K_INSERT K_INTO table_name ( '(' column_name ( ',' column_name )* ')' )?
@@ -232,6 +232,7 @@ K_SELECT : S E L E C T;
 K_SET : S E T;
 K_SHOW : S H O W;
 K_TABLE : T A B L E;
+K_TABLES : T A B L E S;
 K_TO : T O;
 K_UPDATE : U P D A T E;
 K_USE : U S E;

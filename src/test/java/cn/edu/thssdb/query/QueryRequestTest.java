@@ -9,7 +9,7 @@ import cn.edu.thssdb.query.request.delete.DeleteQueryRequest;
 import cn.edu.thssdb.query.request.drop.DropQueryRequest;
 import cn.edu.thssdb.query.request.insert.InsertQueryRequest;
 import cn.edu.thssdb.query.request.select.SelectQueryRequest;
-import cn.edu.thssdb.query.request.show.ShowTableRequest;
+import cn.edu.thssdb.query.request.show.ShowMetaQueryRequest;
 import cn.edu.thssdb.query.request.update.UpdateQueryRequest;
 import cn.edu.thssdb.schema.Database;
 import cn.edu.thssdb.schema.Manager;
@@ -90,7 +90,7 @@ public class QueryRequestTest {
     CommonTokenStream tokens = new CommonTokenStream(lexer);
     SQLParser parser = new SQLParser(tokens);
     SQLVisitor visitor = new SQLVisitorImpl();
-    ShowTableRequest request = ((List<ShowTableRequest>) visitor.visit(parser.parse())).get(0);
+    ShowMetaQueryRequest request = ((List<ShowMetaQueryRequest>) visitor.visit(parser.parse())).get(0);
 
     var result = request.execute(db);
     assertEquals("hello", result.getAttrs().get(0).getCells().get(0).getValue());

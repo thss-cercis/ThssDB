@@ -13,7 +13,8 @@ import cn.edu.thssdb.query.request.delete.DeleteQueryRequest;
 import cn.edu.thssdb.query.request.drop.DropQueryRequest;
 import cn.edu.thssdb.query.request.insert.InsertQueryRequest;
 import cn.edu.thssdb.query.request.select.SelectQueryRequest;
-import cn.edu.thssdb.query.request.show.ShowTableRequest;
+import cn.edu.thssdb.query.request.show.ShowMetaQueryRequest;
+import cn.edu.thssdb.query.request.show.ShowTablesQueryRequest;
 import cn.edu.thssdb.query.request.shutdown.ShutdownQueryRequest;
 import cn.edu.thssdb.query.request.transaction.BeginQueryRequest;
 import cn.edu.thssdb.query.request.transaction.CommitQueryRequest;
@@ -47,6 +48,8 @@ public class SQLVisitorImpl extends SQLBaseVisitor<Object> {
       return visitDrop_table_stmt(ctx.drop_table_stmt());
     } else if (ctx.show_table_stmt() != null) {
       return visitShow_table_stmt(ctx.show_table_stmt());
+    } else if (ctx.show_meta_stmt() != null) {
+      return visitShow_meta_stmt(ctx.show_meta_stmt());
     } else if (ctx.insert_stmt() != null) {
       return visitInsert_stmt(ctx.insert_stmt());
     } else if (ctx.update_stmt() != null) {
@@ -130,8 +133,13 @@ public class SQLVisitorImpl extends SQLBaseVisitor<Object> {
   }
 
   @Override
-  public ShowTableRequest visitShow_table_stmt(SQLParser.Show_table_stmtContext ctx) {
-    ShowTableRequest req = new ShowTableRequest();
+  public ShowTablesQueryRequest visitShow_table_stmt(SQLParser.Show_table_stmtContext ctx) {
+    return new ShowTablesQueryRequest();
+  }
+
+  @Override
+  public ShowMetaQueryRequest visitShow_meta_stmt(SQLParser.Show_meta_stmtContext ctx) {
+    ShowMetaQueryRequest req = new ShowMetaQueryRequest();
     req.setTableName(visitTable_name(ctx.table_name()));
     return req;
   }
