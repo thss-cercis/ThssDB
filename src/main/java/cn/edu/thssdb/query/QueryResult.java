@@ -46,7 +46,7 @@ public class QueryResult {
       for (int i = 0;i < metaInfo.getColumns().size();++i) {
         int targetEntryIdx = mapping[i];
         newCells.getCells().add(
-          new Cell(p.right.getEntries().get(targetEntryIdx).value.toString())
+          new Cell(p.right.getEntries().get(targetEntryIdx) == null? "null" : p.right.getEntries().get(targetEntryIdx).value.toString())
         );
       }
       ret.getAttrs().add(newCells);
@@ -100,9 +100,9 @@ public class QueryResult {
       .findFirst()
       .orElseThrow(() -> new TableSelectException("could not find attr " + joinCondition.getLhs().getAttrName() + " in table " + t1.getTable().getTableName()));
     int targetEntryIdx2 = IntStream.range(0, columns2.length)
-      .filter(i -> columns2[i].getName().equals(joinCondition.getLhs().getAttrName()))
+      .filter(i -> columns2[i].getName().equals(joinCondition.getRhs().getAttrName()))
       .findFirst()
-      .orElseThrow(() -> new TableSelectException("could not find attr " + joinCondition.getLhs().getAttrName() + " in table " + t2.getTable().getTableName()));
+      .orElseThrow(() -> new TableSelectException("could not find attr " + joinCondition.getRhs().getAttrName() + " in table " + t2.getTable().getTableName()));
     // 加入数据
     QueryResult ret = new QueryResult();
     ret.setMetaInfo(metaInfo);
@@ -123,12 +123,12 @@ public class QueryResult {
           if (metaInfoTableName == null || metaInfoTableName.equals(t1.getTable().getTableName())) {
             // tb1
             newCells.getCells().add(
-              new Cell(p1.right.getEntries().get(tIdx).value.toString())
+              new Cell(p1.right.getEntries().get(tIdx) == null ? "null" : p1.right.getEntries().get(tIdx).value.toString())
             );
           } else {
             // tb2
             newCells.getCells().add(
-              new Cell(p2.right.getEntries().get(tIdx).value.toString())
+              new Cell(p2.right.getEntries().get(tIdx) == null? "null" : p2.right.getEntries().get(tIdx).value.toString())
             );
           }
         }

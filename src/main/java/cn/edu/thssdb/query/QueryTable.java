@@ -114,7 +114,7 @@ public class QueryTable implements Iterator<Pair<Entry, Row>>, Cloneable {
       }
       // 判断 condition
       boolean isFind = false;
-      if (tmp.right.getEntries().get(conditionColumnIdx).value != null) {
+      if (tmp.right.getEntries().get(conditionColumnIdx) != null && tmp.right.getEntries().get(conditionColumnIdx).value != null) {
         switch (this.condition.getComparator()) {
           case EQ:
             isFind = tmp.right.getEntries().get(conditionColumnIdx).value.compareTo(conditionValue) == 0;
