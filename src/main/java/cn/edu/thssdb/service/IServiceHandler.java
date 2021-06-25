@@ -13,6 +13,10 @@ import cn.edu.thssdb.parser.SQLVisitor;
 import cn.edu.thssdb.parser.SQLVisitorImpl;
 import cn.edu.thssdb.query.IQueryRequest;
 import cn.edu.thssdb.query.QueryResult;
+import cn.edu.thssdb.query.request.insert.InsertQueryRequest;
+import cn.edu.thssdb.query.request.select.SelectQueryRequest;
+import cn.edu.thssdb.query.request.transaction.BeginQueryRequest;
+import cn.edu.thssdb.query.request.transaction.CommitQueryRequest;
 import cn.edu.thssdb.rpc.thrift.ConnectReq;
 import cn.edu.thssdb.rpc.thrift.ConnectResp;
 import cn.edu.thssdb.rpc.thrift.DisconnetReq;
@@ -29,6 +33,7 @@ import cn.edu.thssdb.server.ThssDB;
 import cn.edu.thssdb.server.sess.SessionManager;
 import cn.edu.thssdb.server.sess.Session;
 import cn.edu.thssdb.utils.Cells;
+import cn.edu.thssdb.utils.Pair;
 import cn.edu.thssdb.utils.enums.StatusCode;
 import lombok.AllArgsConstructor;
 import lombok.var;
@@ -41,6 +46,7 @@ import org.slf4j.LoggerFactory;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @AllArgsConstructor
@@ -116,10 +122,23 @@ public class IServiceHandler implements IService.Iface {
     try {
       // 解析 query 请求
       List<IQueryRequest> reqList = (List<IQueryRequest>) visitor.visit(parser.parse());
+      assert reqList.size() == 1;
 
       QueryResult result = null;
       for (IQueryRequest r: reqList) {
-        result = r.execute(database);
+        if (r instanceof BeginQueryRequest) {
+          session.beginTransaction();
+        } else if (r instanceof CommitQueryRequest) {
+          session.commitTransaction();
+        } else if (r instanceof SelectQueryRequest) {
+          result = r.execute(database);
+        } else if (session.getTransactionId() == null) {
+          session.beginTransaction();
+          session.addLog(req.getStatement().replaceAll("\n", " "));
+          session.commitTransaction();
+        } else {
+          session.addLog(req.getStatement().replaceAll("\n", " "));
+        }
       }
       assert result != null;
       // QueryResult -> ExecuteStatementResp

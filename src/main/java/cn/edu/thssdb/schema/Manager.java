@@ -55,7 +55,7 @@ public class Manager {
 
         databases.put(databaseName, db);
       }
-      // TODO read log
+      // TODO read logs
     } catch (IOException e) {
       throw new DeserializationException("Failed to load metadata.", e);
     } finally {

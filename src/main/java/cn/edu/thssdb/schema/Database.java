@@ -20,16 +20,23 @@ public class Database {
   private final Map<String, Table> tables;
   @Getter
   ReentrantReadWriteLock lock;
+  @Getter
+  File logFile;
 
   public Database(String name) {
     this.name = name;
     this.tables = new HashMap<>();
     this.lock = new ReentrantReadWriteLock();
+    this.logFile = new File(getLogPath());
     recover();
   }
 
   private String getPath() {
     return "db_" + name;
+  }
+
+  private String getLogPath() {
+    return Paths.get(getPath(), "log").toString();
   }
 
   private String getMetaPath() {
@@ -48,6 +55,31 @@ public class Database {
     }
   }
 
+  public void persistWithoutLock() throws IOException {
+    ensureDataDirectoryExists();
+    // save meta data
+    File metaFile = new File(getMetaPath());
+    try (DataOutputStream metaOutputStream = new DataOutputStream(new FileOutputStream(metaFile))) {
+      // save database meta file
+      // { tableCount, { tableName, columnCount, Column[columnCount] }[tableCont] }
+      metaOutputStream.writeInt(tables.size());
+      for (Map.Entry<String, Table> entry : tables.entrySet()) {
+        String tableName = entry.getKey();
+        Table table = entry.getValue();
+        metaOutputStream.writeUTF(tableName);
+        metaOutputStream.writeInt(table.columns.length);
+        for (int c = 0; c < table.columns.length; ++c) {
+          table.columns[c].save(metaOutputStream);
+        }
+        // save table
+        File tableFile = new File(getTablePath(tableName));
+        try (FileOutputStream fileOutputStream = new FileOutputStream(tableFile)) {
+          table.save(fileOutputStream);
+        }
+      }
+    }
+  }
+
   /**
    * Saves this database's meta data and tables.
    */
@@ -56,28 +88,7 @@ public class Database {
     lock.readLock().lock();
 
     try {
-      ensureDataDirectoryExists();
-      // save meta data
-      File metaFile = new File(getMetaPath());
-      try (DataOutputStream metaOutputStream = new DataOutputStream(new FileOutputStream(metaFile))) {
-        // save database meta file
-        // { tableCount, { tableName, columnCount, Column[columnCount] }[tableCont] }
-        metaOutputStream.writeInt(tables.size());
-        for (Map.Entry<String, Table> entry : tables.entrySet()) {
-          String tableName = entry.getKey();
-          Table table = entry.getValue();
-          metaOutputStream.writeUTF(tableName);
-          metaOutputStream.writeInt(table.columns.length);
-          for (int c = 0; c < table.columns.length; ++c) {
-            table.columns[c].save(metaOutputStream);
-          }
-          // save table
-          File tableFile = new File(getTablePath(tableName));
-          try (FileOutputStream fileOutputStream = new FileOutputStream(tableFile)) {
-            table.save(fileOutputStream);
-          }
-        }
-      }
+      persistWithoutLock();
     } catch (FileNotFoundException e) {
       throw new SerializationException("Failed to persist database " + name, e);
     } finally {

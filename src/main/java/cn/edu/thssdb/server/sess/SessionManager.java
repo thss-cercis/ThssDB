@@ -11,6 +11,8 @@ import lombok.Synchronized;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
 import java.util.concurrent.ConcurrentHashMap;
@@ -27,7 +29,7 @@ public class SessionManager {
         while (true) {
             Long l = r.nextLong();
             if (!sessionMap.containsKey(l)) {
-                Session session = new Session(l, username);
+                Session session = new Session(l, username, null, new ArrayList<>());
                 this.sessionMap.put(l, session);
                 return session;
             }
