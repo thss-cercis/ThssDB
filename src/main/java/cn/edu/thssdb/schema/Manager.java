@@ -109,9 +109,6 @@ public class Manager {
     // TODO interrupt all transactions
     lock.writeLock().lock();
     try {
-      databases.forEach((name, db) -> {
-        db.shutdown();
-      });
       finish();
     } catch (Throwable ignored) {
     } finally {

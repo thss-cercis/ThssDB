@@ -13,10 +13,17 @@ import cn.edu.thssdb.parser.SQLVisitor;
 import cn.edu.thssdb.parser.SQLVisitorImpl;
 import cn.edu.thssdb.query.IQueryRequest;
 import cn.edu.thssdb.query.QueryResult;
+import cn.edu.thssdb.query.request.create.CreateTableAttr;
+import cn.edu.thssdb.query.request.create.CreateTableQueryRequest;
+import cn.edu.thssdb.query.request.delete.DeleteQueryRequest;
+import cn.edu.thssdb.query.request.drop.DropQueryRequest;
 import cn.edu.thssdb.query.request.insert.InsertQueryRequest;
 import cn.edu.thssdb.query.request.select.SelectQueryRequest;
+import cn.edu.thssdb.query.request.show.ShowMetaQueryRequest;
+import cn.edu.thssdb.query.request.show.ShowTablesQueryRequest;
 import cn.edu.thssdb.query.request.transaction.BeginQueryRequest;
 import cn.edu.thssdb.query.request.transaction.CommitQueryRequest;
+import cn.edu.thssdb.query.request.update.UpdateQueryRequest;
 import cn.edu.thssdb.rpc.thrift.ConnectReq;
 import cn.edu.thssdb.rpc.thrift.ConnectResp;
 import cn.edu.thssdb.rpc.thrift.DisconnetReq;
@@ -105,9 +112,9 @@ public class IServiceHandler implements IService.Iface {
     Session session = db.getSessionManager().getSession(req.getSessionId());
     if (session == null) {
       return new ExecuteStatementResp(
-              new Status(StatusCode.CONNECT_NOT_FOUND.code).setMsg(StatusCode.CONNECT_NOT_FOUND.description),
-              false,
-              false
+        new Status(StatusCode.CONNECT_NOT_FOUND.code).setMsg(StatusCode.CONNECT_NOT_FOUND.description),
+        false,
+        false
       );
     }
     // TODO 先解析，然后执行
@@ -130,17 +137,32 @@ public class IServiceHandler implements IService.Iface {
           session.beginTransaction();
         } else if (r instanceof CommitQueryRequest) {
           session.commitTransaction();
-        } else if (r instanceof SelectQueryRequest) {
-          result = r.execute(database);
-        } else if (session.getTransactionId() == null) {
-          session.beginTransaction();
-          session.addLog(req.getStatement().replaceAll("\n", " "));
-          session.commitTransaction();
         } else {
-          session.addLog(req.getStatement().replaceAll("\n", " "));
+          boolean isWrite = r instanceof CreateTableAttr;
+          isWrite |= r instanceof CreateTableQueryRequest;
+          isWrite |= r instanceof DropQueryRequest;
+          isWrite |= r instanceof InsertQueryRequest;
+          isWrite |= r instanceof DeleteQueryRequest;
+          isWrite |= r instanceof UpdateQueryRequest;
+          if (!isWrite) {
+            result = r.execute(database);
+            assert result != null;
+          } else {
+            if (session.getTransactionId() == null) {
+              session.beginTransaction();
+              session.addLog(req.getStatement().replaceAll("\n", " "));
+              session.commitTransaction();
+            } else {
+              session.addLog(req.getStatement().replaceAll("\n", " "));
+            }
+          }
         }
       }
-      assert result != null;
+
+      if (result == null) {
+        throw new NullPointerException();
+      }
+
       // QueryResult -> ExecuteStatementResp
       var resp = new ExecuteStatementResp(
         new Status(StatusCode.SUCCESS.code),
@@ -173,6 +195,7 @@ public class IServiceHandler implements IService.Iface {
       ThssDB.getInstance().stop();
       return new ExecuteStatementResp(new Status(StatusCode.SUCCESS.code), false, false);
     } catch (Exception e) {
+      e.printStackTrace();
       Status status = new Status(StatusCode.FAILURE.code);
       status.setMsg(e.getMessage());
       return new ExecuteStatementResp(status, false, true);

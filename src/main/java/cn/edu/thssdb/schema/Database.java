@@ -1,16 +1,23 @@
 package cn.edu.thssdb.schema;
 
 import cn.edu.thssdb.exception.*;
+import cn.edu.thssdb.parser.SQLLexer;
+import cn.edu.thssdb.parser.SQLParser;
+import cn.edu.thssdb.parser.SQLVisitor;
+import cn.edu.thssdb.parser.SQLVisitorImpl;
+import cn.edu.thssdb.query.IQueryRequest;
+import cn.edu.thssdb.query.QueryResult;
 import cn.edu.thssdb.utils.Pair;
 import lombok.Getter;
 import lombok.SneakyThrows;
 import lombok.var;
+import org.antlr.v4.runtime.CharStreams;
+import org.antlr.v4.runtime.CommonTokenStream;
 
 import java.io.*;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 public class Database {
@@ -19,15 +26,21 @@ public class Database {
   @Getter
   private final Map<String, Table> tables;
   @Getter
-  ReentrantReadWriteLock lock;
+  ReentrantReadWriteLock dbLock;
+  @Getter
+  ReentrantReadWriteLock logLock;
   @Getter
   File logFile;
+  @Getter
+  List<String> committed;
 
   public Database(String name) {
     this.name = name;
     this.tables = new HashMap<>();
-    this.lock = new ReentrantReadWriteLock();
+    this.dbLock = new ReentrantReadWriteLock();
+    this.logLock = new ReentrantReadWriteLock();
     this.logFile = new File(getLogPath());
+    this.committed = new ArrayList<>();
     recover();
   }
 
@@ -55,50 +68,44 @@ public class Database {
     }
   }
 
-  public void persistWithoutLock() throws IOException {
-    ensureDataDirectoryExists();
-    // save meta data
-    File metaFile = new File(getMetaPath());
-    try (DataOutputStream metaOutputStream = new DataOutputStream(new FileOutputStream(metaFile))) {
-      // save database meta file
-      // { tableCount, { tableName, columnCount, Column[columnCount] }[tableCont] }
-      metaOutputStream.writeInt(tables.size());
-      for (Map.Entry<String, Table> entry : tables.entrySet()) {
-        String tableName = entry.getKey();
-        Table table = entry.getValue();
-        metaOutputStream.writeUTF(tableName);
-        metaOutputStream.writeInt(table.columns.length);
-        for (int c = 0; c < table.columns.length; ++c) {
-          table.columns[c].save(metaOutputStream);
-        }
-        // save table
-        File tableFile = new File(getTablePath(tableName));
-        try (FileOutputStream fileOutputStream = new FileOutputStream(tableFile)) {
-          table.save(fileOutputStream);
-        }
-      }
-    }
-  }
-
   /**
    * Saves this database's meta data and tables.
    */
   @SneakyThrows
   private void persist() {
-    lock.readLock().lock();
-
+    dbLock.readLock().lock();
     try {
-      persistWithoutLock();
+      ensureDataDirectoryExists();
+      // save meta data
+      File metaFile = new File(getMetaPath());
+      try (DataOutputStream metaOutputStream = new DataOutputStream(new FileOutputStream(metaFile))) {
+        // save database meta file
+        // { tableCount, { tableName, columnCount, Column[columnCount] }[tableCont] }
+        metaOutputStream.writeInt(tables.size());
+        for (Map.Entry<String, Table> entry : tables.entrySet()) {
+          String tableName = entry.getKey();
+          Table table = entry.getValue();
+          metaOutputStream.writeUTF(tableName);
+          metaOutputStream.writeInt(table.columns.length);
+          for (int c = 0; c < table.columns.length; ++c) {
+            table.columns[c].save(metaOutputStream);
+          }
+          // save table
+          File tableFile = new File(getTablePath(tableName));
+          try (FileOutputStream fileOutputStream = new FileOutputStream(tableFile)) {
+            table.save(fileOutputStream);
+          }
+        }
+      }
     } catch (FileNotFoundException e) {
       throw new SerializationException("Failed to persist database " + name, e);
     } finally {
-      lock.readLock().unlock();
+      dbLock.readLock().unlock();
     }
-    // TODO: 事务
   }
 
   public void createTable(String name, Column[] columns) {
-    lock.writeLock().lock();
+    dbLock.writeLock().lock();
     try {
       Table table = tables.get(name);
       if (table != null) {
@@ -109,7 +116,7 @@ public class Database {
       Table newTable = new Table(this.name, name, columns);
       this.tables.put(name, newTable);
     } finally {
-      lock.writeLock().unlock();
+      dbLock.writeLock().unlock();
     }
   }
 
@@ -118,7 +125,7 @@ public class Database {
   }
 
   public void dropTable(String name) {
-    lock.writeLock().lock();
+    dbLock.writeLock().lock();
     try {
       Table table = tables.get(name);
       if (table == null) {
@@ -132,12 +139,12 @@ public class Database {
         mutex.unlock();
       }
     } finally {
-      lock.writeLock().unlock();
+      dbLock.writeLock().unlock();
     }
   }
 
   @SneakyThrows
-  private void recover() {
+  private void loadTable() {
     try {
       ensureDataDirectoryExists();
       // load meta data
@@ -176,7 +183,101 @@ public class Database {
     }
   }
 
+  public QueryResult execute(String statement) {
+    SQLLexer lexer = new SQLLexer(CharStreams.fromString(statement));
+    CommonTokenStream tokens = new CommonTokenStream(lexer);
+    SQLParser parser = new SQLParser(tokens);
+    SQLVisitor<?> visitor = new SQLVisitorImpl();
+    List<?> reqList = (List<?>) visitor.visit(parser.parse());
+    IQueryRequest req = (IQueryRequest) reqList.get(0);
+    return req.execute(this);
+  }
+
+  public static void writeLogTo(FileOutputStream fos, String transactionId, String statement) throws IOException {
+    fos.write((transactionId + "\n").getBytes(StandardCharsets.UTF_8));
+    fos.write((statement + "\n").getBytes(StandardCharsets.UTF_8));
+  }
+
+  public void writeLog(String transactionId, String statement) {
+    logLock.writeLock().lock();
+    try (FileOutputStream fos = new FileOutputStream(logFile, true)) {
+      writeLogTo(fos, transactionId, statement);
+    } catch (IOException e) {
+      e.printStackTrace();
+    } finally {
+      logLock.writeLock().unlock();
+    }
+  }
+
+  private void recover() {
+    loadTable();
+    List<String> log = new ArrayList<>();
+    try (FileInputStream fis = new FileInputStream(logFile)) {
+      BufferedReader reader = new BufferedReader(new InputStreamReader(fis));
+      while (true) {
+        String line = reader.readLine();
+        if (line == null) {
+          break;
+        }
+        log.add(line);
+      }
+    } catch (IOException e) {
+      e.printStackTrace();
+    }
+    assert log.size() % 2 == 0;
+    Set<String> redo = new HashSet<>();
+    Map<String, List<String>> statementMap = new HashMap<>();
+    List<String> committedList = new ArrayList<>();
+    for (int i = 0; i < log.size(); i += 2) {
+      String transactionId = log.get(i);
+      String statement = log.get(i + 1);
+      if (statement.equals("written")) {
+        redo.remove(transactionId);
+      } else {
+        if (statement.equals("commit")) {
+          redo.add(transactionId);
+          committedList.add(transactionId);
+        }
+        List<String> statementList = statementMap.getOrDefault(transactionId, new ArrayList<>());
+        statementList.add(statement);
+        statementMap.put(transactionId, statementList);
+      }
+    }
+    try (FileOutputStream fos = new FileOutputStream(logFile)) {
+      for (String transactionId : committedList) {
+        if (redo.contains(transactionId)) {
+          for (String statement : statementMap.get(transactionId)) {
+            writeLogTo(fos, transactionId, statement);
+          }
+          committed.add(transactionId);
+        }
+      }
+    } catch (IOException e) {
+      e.printStackTrace();
+    }
+    for (String transactionId : committedList) {
+      if (redo.contains(transactionId)) {
+        for (String statement : statementMap.get(transactionId)) {
+          if (!statement.equals("commit")) {
+            execute(statement);
+          }
+        }
+      }
+    }
+  }
+
   public void shutdown() {
     persist();
+    logLock.writeLock().lock();
+    try (FileOutputStream fos = new FileOutputStream(logFile, true)) {
+      for (String transactionId : committed) {
+        writeLogTo(fos, transactionId, "written");
+      }
+      committed.clear();
+    } catch (IOException e) {
+      e.printStackTrace();
+    } finally {
+      logLock.writeLock().unlock();
+    }
   }
 }

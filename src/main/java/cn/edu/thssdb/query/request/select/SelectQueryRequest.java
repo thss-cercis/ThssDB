@@ -50,6 +50,7 @@ public class SelectQueryRequest implements IQueryRequest {
    */
   @Override
   public QueryResult execute(Database db) {
+    db.getDbLock().readLock().lock();
     QueryResult result;
     // 样式
     // logic
@@ -102,6 +103,7 @@ public class SelectQueryRequest implements IQueryRequest {
       }
     } finally {
       mutex.unlock();
+      db.getDbLock().readLock().unlock();
     }
 
     return result;

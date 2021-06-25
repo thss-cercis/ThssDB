@@ -36,7 +36,7 @@ public class ShowTablesQueryRequest implements IQueryRequest {
       Column.builder().name("table_name").build()
     ));
     // lock db
-    var mutex = db.getLock().readLock();
+    var mutex = db.getDbLock().readLock();
     mutex.lock();
     try {
       var tables = db.getTables();
