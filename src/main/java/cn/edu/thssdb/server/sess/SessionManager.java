@@ -11,12 +11,12 @@ import lombok.Synchronized;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class SessionManager {
-    private final Map<Long, Session> sessionMap = new HashMap<>();
+    private final Map<Long, Session> sessionMap = new ConcurrentHashMap<>();
 
     public SessionManager() {}
 

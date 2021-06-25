@@ -1,8 +1,6 @@
 package cn.edu.thssdb.schema;
 
 import cn.edu.thssdb.exception.*;
-import cn.edu.thssdb.query.QueryResult;
-import cn.edu.thssdb.query.QueryTable;
 import cn.edu.thssdb.utils.Pair;
 import lombok.Getter;
 import lombok.SneakyThrows;
@@ -56,6 +54,7 @@ public class Database {
   @SneakyThrows
   private void persist() {
     lock.readLock().lock();
+
     try {
       ensureDataDirectoryExists();
       // save meta data
